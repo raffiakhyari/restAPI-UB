@@ -7,8 +7,10 @@ use App\Http\Controllers\Controller;
 use App\Models\User;
 use Exception;
 use Illuminate\Http\Request;
+use App\Http\Requests\UserPostRequest;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Validator;
 
 class UserController extends Controller
 {
@@ -43,8 +45,8 @@ class UserController extends Controller
                 'token_type' => 'Bearer',
                 'user'=> $user
             ], 'Authenticated');
-        } 
-        
+        }
+
         catch(Exception $error){
             return ResponseFormatter::error([
                 'message' => 'Something went wrong',
@@ -56,7 +58,7 @@ class UserController extends Controller
     public function logout(Request $request)
     {
         $token = $request->user()->currentAccessToken()->delete();
-        
+
         return ResponseFormatter::success($token, 'Token Revoked');
     }
 
@@ -66,15 +68,45 @@ class UserController extends Controller
             $request->user(),'Data user berhasil diambil');
     }
 
+    public function register(Request $request){
+
+
+            $validator = Validator::make($request->all(),[
+                'name'=>'required|max:255',
+                'email' => 'required|email|unique:users',
+                'password' => 'required|min:8',
+                'NoTelpon' => 'required|regex:/(08)[0-9]{9}/',
+
+            ]);
+
+            //kalau validator nya fail
+            if($validator->fails()){
+                return ResponseFormatter::error([
+                    'message' => 'Something went wrong',
+                    'error' => $validator->messages(),
+                ],'Authentication Failed', 500);
+
+            }
+
+            $user = User::create($request->all());
+
+            return ResponseFormatter::success([
+                'user'=> $user
+                ], 'Daftar berhasil');
+
+    }
+
     public function updateProfile(Request $request)
     {
         $data = $request->all();
 
         $user = Auth::user();
-        $user-> update($data);
+        $user -> update($data);
 
         return ResponseFormatter::success($user, 'Profile Updated');
     }
+
+
 
 
 }
