@@ -12,6 +12,9 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 
+use Illuminate\Support\Facades\Mail;
+use App\Mail\verifyMail;
+
 class UserController extends Controller
 {
     public function login(Request $request)
@@ -88,7 +91,15 @@ class UserController extends Controller
 
             }
 
+            //send verification code to email
+            $code = $this->sendCode($request->email);
+            //storing code to session
+            $request->session()->put('code', $code);
+
+
             $user = User::create($request->all());
+
+
 
             return ResponseFormatter::success([
                 'user'=> $user
@@ -104,6 +115,32 @@ class UserController extends Controller
         $user -> update($data);
 
         return ResponseFormatter::success($user, 'Profile Updated');
+    }
+
+    public function sendCode($to_email="axelchristiant33@gmail.com"){
+        $code = $this->random_str();
+        Mail::to($to_email)->send(new verifyMail($code));
+        return $code;
+    }
+
+    public function verifyCode(Request $request){
+        if($request->code == $request->session()->get('code')){
+            return ResponseFormatter::success(null, "Successful Verification");
+         }
+        return ResponseFormatter::error(null,"Wrong Code!",400);
+    }
+
+    function random_str(int $length = 5): string {
+        $keyspace = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        if ($length < 1) {
+            throw new \RangeException("Length must be a positive integer");
+        }
+        $pieces = [];
+        $max = mb_strlen($keyspace, '8bit') - 1;
+        for ($i = 0; $i < $length; ++$i) {
+            $pieces []= $keyspace[random_int(0, $max)];
+        }
+        return implode('', $pieces);
     }
 
 
