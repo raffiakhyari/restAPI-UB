@@ -33,7 +33,5 @@ Route::post('register',[UserController::class, 'register']);
 
 Route::get('product', [ProductController::class, 'all']);
 
-Route::get('tes',[UserController::class, 'sendCode']);
-
 
 

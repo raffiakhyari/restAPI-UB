@@ -5,6 +5,7 @@ namespace App\Http\Controllers\API;
 use App\Helpers\ResponseFormatter;
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\Code;
 use Exception;
 use Illuminate\Http\Request;
 use App\Http\Requests\UserPostRequest;
@@ -42,20 +43,19 @@ class UserController extends Controller
             }
 
             //jika berhasil maka login
-            $tokenResult = $user->createToken('authToken')->plaintTextToken;
+            //$tokenResult = $user->createToken('authToken')->plaintTextToken;
             return ResponseFormatter::success([
-                'access_token' => $tokenResult,
                 'token_type' => 'Bearer',
                 'user'=> $user
             ], 'Authenticated');
         }
 
         catch(Exception $error){
-            return ResponseFormatter::error([
-                'message' => 'Something went wrong',
-                'error' => $error
-            ], 'Authentication Failed');
-        }
+             return ResponseFormatter::error([
+                 'message' => 'Something went wrong',
+                 'error' => $error
+             ], 'Authentication Failed');
+         }
     }
 
     public function logout(Request $request)
@@ -71,34 +71,20 @@ class UserController extends Controller
             $request->user(),'Data user berhasil diambil');
     }
 
-    public function register(Request $request){
+    public function register( UserPostRequest $request){
 
 
-            $validator = Validator::make($request->all(),[
-                'name'=>'required|max:255',
-                'email' => 'required|email|unique:users',
-                'password' => 'required|min:8',
-                'NoTelpon' => 'required|regex:/(08)[0-9]{9}/',
-
-            ]);
-
-            //kalau validator nya fail
-            if($validator->fails()){
-                return ResponseFormatter::error([
-                    'message' => 'Something went wrong',
-                    'error' => $validator->messages(),
-                ],'Authentication Failed', 500);
-
-            }
+            $validated = $request->validated();
 
             //send verification code to email
             $code = $this->sendCode($request->email);
-            //storing code to session
-            $request->session()->put('code', $code);
 
-
-            $user = User::create($request->all());
-
+            $user = User::create([
+                'name' => $request->name,
+                'email'=> $request->email,
+                'NoTelpon' => $request->NoTelpon,
+                'password' => Hash::make($request->password)
+            ]);
 
 
             return ResponseFormatter::success([
@@ -117,20 +103,22 @@ class UserController extends Controller
         return ResponseFormatter::success($user, 'Profile Updated');
     }
 
-    public function sendCode($to_email="axelchristiant33@gmail.com"){
+    public function sendCode(){
+        $to_email = Auth::user()->email;
         $code = $this->random_str();
         Mail::to($to_email)->send(new verifyMail($code));
         return $code;
     }
 
     public function verifyCode(Request $request){
-        if($request->code == $request->session()->get('code')){
+        $actual_code = Code::findOrFail(Auth::id());
+        if($request->code == $actual_code){
             return ResponseFormatter::success(null, "Successful Verification");
          }
         return ResponseFormatter::error(null,"Wrong Code!",400);
     }
 
-    function random_str(int $length = 5): string {
+    function random_str(int $length = 6): string {
         $keyspace = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
         if ($length < 1) {
             throw new \RangeException("Length must be a positive integer");
