@@ -42,6 +42,7 @@ class UserController extends Controller
                 throw new \Exception('Invalid Credentials');
             }
 
+
             //jika berhasil maka login
             //$tokenResult = $user->createToken('authToken')->plaintTextToken;
             return ResponseFormatter::success([
@@ -77,7 +78,7 @@ class UserController extends Controller
             $validated = $request->validated();
 
             //send verification code to email
-            $code = $this->sendCode($request->email);
+            $this->sendCode($request->email);
 
             $user = User::create([
                 'name' => $request->name,
@@ -85,6 +86,8 @@ class UserController extends Controller
                 'NoTelpon' => $request->NoTelpon,
                 'password' => Hash::make($request->password)
             ]);
+
+            $code = $this->sendCode($user->id, $user->email);
 
 
             return ResponseFormatter::success([
@@ -103,19 +106,36 @@ class UserController extends Controller
         return ResponseFormatter::success($user, 'Profile Updated');
     }
 
-    public function sendCode(){
+    public function resendCode(){
+        $id = Auth::id();
         $to_email = Auth::user()->email;
+        $this->sendCode($id,$to_email);
+        return ResponseFormatter::success(null, 'Resend Successful!');
+    }
+
+    function sendCode($id, $to_email){
         $code = $this->random_str();
         Mail::to($to_email)->send(new verifyMail($code));
+        $updated_code =Code::upsert([['user_id' => $id, 'code' => $code,]], ['user_id'],['code']);
         return $code;
     }
 
-    public function verifyCode(Request $request){
-        $actual_code = Code::findOrFail(Auth::id());
+    function verifyCode(Request $request){
+        $user_id = Auth::id();
+        $actual_code = Code::findOrFail($user_id);
+
         if($request->code == $actual_code){
-            return ResponseFormatter::success(null, "Successful Verification");
+            verifyUser($user_id);
+            return ResponseFormatter::success(null, "Successful Verification!");
          }
         return ResponseFormatter::error(null,"Wrong Code!",400);
+    }
+
+    function verifyUser($user_id){
+        Code::where('user_id', $user_id)->delete();
+        $user =  User::find($user_id);
+        $user->verified = 1;
+
     }
 
     function random_str(int $length = 6): string {

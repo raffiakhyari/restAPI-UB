@@ -10,4 +10,6 @@ class Code extends Model
     use HasFactory;
     protected $primaryKey = 'user_id';
     public $incrementing = false;
+    protected $fillable = ['user_id', 'verification_code'];
+
 }
